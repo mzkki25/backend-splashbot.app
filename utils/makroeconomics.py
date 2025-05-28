@@ -11,7 +11,7 @@ from core.gemini import model, model_2
 from core.logging_logger import setup_logger
 logger = setup_logger(__name__)
 
-def two_wheels_model(text, user_id):
+def two_wheels_model(text, user_id, last_response):
     df = pd.read_csv('dataset/fix_2w.csv')
     uid = str(uuid.uuid4())
     filepath = f"utils/_generated_code_{uid}.py"
@@ -34,14 +34,14 @@ def two_wheels_model(text, user_id):
            ### Aturan Wajib:
             1. Jawaban hanya boleh berupa **blok kode Python**, tanpa penjelasan atau komentar apapun.
             2. Jika **pertanyaan TIDAK RELEVAN atau TIDAK DAPAT dijawab** menggunakan dataset tersebut, tampilkan:
-            `raise ValueError("Pertanyaan tidak dapat dijawab")`
+               `raise ValueError("Pertanyaan tidak dapat dijawab")`
             3. Jika **pertanyaan DAPAT dijawab**, maka:
             - Gunakan `pandas` untuk manipulasi datanya.
-            - Kamu dapat menyesuaikan pertanyaan yang diminta apakah pertanyaan mengharuskan output dataframe atau grafik.
+            - Jangan menghasilkan kode plotly (grafik/chart) jika tidak diminta oleh pengguna.
             - Simpan hasil akhir dalam `final_answer` (dalam bentuk DataFrame atau grafik).
-            - Jika pertanyaan mengharuskan output grafik, gunakan `plotly` untuk membuat grafik interaktif. dan simpan grafik tersebut ke dalam file JSON 
+            - Jika outputnya DataFrame, simpan dataframe tersebut ke dalam variabel `final_answer`.
+            - Jika pengguna meminta output grafik (chart), gunakan `plotly` untuk membuat grafik interaktif. dan simpan grafik tersebut ke dalam file JSON 
               dengan format output akhir harus ```final_answer = json.loads(json.dumps(fig.to_plotly_json(), cls=PlotlyJSONEncoder))```.
-            - Jika pertanyaan mengharuskan output dataframe, simpan dataframe tersebut ke dalam variabel `final_answer`.
             4. Jangan buat asumsi atau interpolasi data yang tidak ada di dataset.
             5. Jangan mencetak apapun, hanya deklarasi kode
 
@@ -81,7 +81,10 @@ def two_wheels_model(text, user_id):
             Setelah kode dijalankan, diperoleh hasil output aktual sebagai berikut:  
             {answer_the_code}
 
-            Pengguna mengajukan pertanyaan berikut:  
+            Output dari respons sebelumnya:
+            {last_response}
+
+            Selanjutnya, pengguna mengajukan pertanyaan berikut:  
             **"{text}"**
 
             ### Konteks Dataset:
@@ -94,15 +97,16 @@ def two_wheels_model(text, user_id):
 
             ### Tugas Anda:
             - Lakukan **analisis terhadap hasil aktual tersebut** dengan **fokus pada sisi bisnis** (bukan teknis atau algoritmik).
-            - Jika hasil berupa visualisasi Plotly (dalam bentuk JSON), bayangkan Anda melihat grafik tersebut lalu berikan interpretasi bisnisnya.
+            - Kamu menjawab sesuai dengan pertanyaan pengguna, dengan fokus pada **aspek bisnis** dari hasil tersebut.
+            - Soroti **implikasi bisnis dan insight** dari hasil tersebut.
             - **Jangan menjelaskan logika atau algoritma kode**.
-            - Soroti **implikasi bisnis, insight, dan dampak nyata** dari hasil tersebut.
+            - Jadikan graph (chart) sebagai **alat bantu visualisasi** untuk mendukung analisis bisnis, bukan fokus utama.
+            - Jika hasil berupa visualisasi Plotly (dalam bentuk JSON), bayangkan Anda melihat grafik tersebut lalu berikan interpretasi bisnisnya.
 
             ### Format Jawaban:
             - Berikan jawaban dalam bentuk **poin-poin ringkas dan padat**.
             - Soroti hal-hal yang **penting dengan cetak tebal (bold)**.
-            - Fokus pada **kesimpulan dan dampak bisnis** dari hasil tersebut.
-            - Berikan **saran atau rekomendasi** jika relevan.
+            - Fokus pada **kesimpulan, strategi, dan dampak bisnis ** dari hasil tersebut.
 
             Jika hasil aktual tidak mengandung informasi bermakna secara bisnis, sampaikan hal itu secara ringkas dan profesional.
         """
@@ -121,7 +125,7 @@ def two_wheels_model(text, user_id):
 
             formatted_result = blob.public_url
         else:
-            formatted_result += str(answer_the_code)
+            formatted_result += ""
 
         return {
             "explanation": f"### Ringkasan Temuan SPLASHBot 🤖:\n\n---\n{explanation}",
@@ -155,35 +159,35 @@ def two_wheels_model(text, user_id):
         except FileNotFoundError:
             pass
      
-def four_wheels_model(text, user_id):
+def four_wheels_model(text, user_id, last_response):
     answer = "Four wheels model masih dalam tahap pengembangan dan belum tersedia untuk digunakan. Silakan coba lagi nanti."
     return {
         "explanation": answer,
         "result": None
     }
     
-def retail_general_model(text, user_id):
+def retail_general_model(text, user_id, last_response):
     answer = "Retail general model masih dalam tahap pengembangan dan belum tersedia untuk digunakan. Silakan coba lagi nanti."
     return {
         "explanation": answer,
         "result": None
     }
     
-def retail_beauty_model(text, user_id):
+def retail_beauty_model(text, user_id, last_response):
     answer = "Retail beauty model masih dalam tahap pengembangan dan belum tersedia untuk digunakan. Silakan coba lagi nanti."
     return {
         "explanation": answer,
         "result": None
     }
     
-def retail_fnb_model(text, user_id):
+def retail_fnb_model(text, user_id, last_response):
     answer = "Retail FnB model masih dalam tahap pengembangan dan belum tersedia untuk digunakan. Silakan coba lagi nanti."
     return {
         "explanation": answer,
         "result": None
     }
     
-def retail_drugstore_model(text, user_id):
+def retail_drugstore_model(text, user_id, last_response):
     answer = "Retail drugstore model masih dalam tahap pengembangan dan belum tersedia untuk digunakan. Silakan coba lagi nanti."
     return {
         "explanation": answer,

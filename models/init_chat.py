@@ -69,7 +69,7 @@ class Chat:
                 response, references = self._handle_web_prompt(prompt, last_response)
                 follow_up_question = recommend_follow_up_questions_gm(prompt, response['explanation'])
         else:
-            response = self._handle_custom_model(chat_option, prompt, user_id)
+            response = self._handle_custom_model(chat_option, prompt, user_id, last_response)
             follow_up_question = recommend_follow_up_questions_ngm(prompt, response['explanation'], chat_option)
             file_id_input = None
 
@@ -218,7 +218,7 @@ class Chat:
             "result": None
         }, references
 
-    def _handle_custom_model(self, chat_option, prompt, user_id):
+    def _handle_custom_model(self, chat_option, prompt, user_id, last_response):
         model_map = {
             "2 Wheels": two_wheels_model,
             "4 Wheels": four_wheels_model,
@@ -232,7 +232,7 @@ class Chat:
         if not model_func:
             raise HTTPException(status_code=400, detail="Invalid chat option")
         
-        return model_func(prompt, user_id)
+        return model_func(prompt, user_id, last_response)
 
     def save_chat_messages(self, chat_ref, chat_session, prompt, response, file_id_input, references):
         chat_ref.update({
@@ -254,5 +254,5 @@ class Chat:
                     'references': references,
                 }
             ]),
-            'last_response': "oke",
+            'last_response': response,
         })
