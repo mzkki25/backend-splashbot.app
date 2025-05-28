@@ -46,7 +46,8 @@ def two_wheels_model(text, user_id, last_response):
             5. Jangan mencetak apapun, hanya deklarasi kode
 
             ### Pertanyaan dari Pengguna:
-            **"{text}"**
+            - **"{last_response}"**
+            - **"{text}"**
 
             ### Tugas Anda:
             Tulis blok kode Python yang valid dan sesuai dengan instruksi di atas.

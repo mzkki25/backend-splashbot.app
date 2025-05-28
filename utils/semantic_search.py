@@ -7,10 +7,10 @@ import io
 
 from sklearn.metrics.pairwise import cosine_similarity
 from sentence_transformers import SentenceTransformer
-from googletrans import Translator
+# from googletrans import Translator
 
 sentence_model = SentenceTransformer('all-MiniLM-L6-v2')
-translator = Translator()
+# translator = Translator()
 
 from core.logging_logger import setup_logger
 logger = setup_logger(__name__)
@@ -62,7 +62,7 @@ def find_relevant_chunks_with_faiss(texts: list, query: str, chunk_size: int = 5
 
     if query_lang_detect != texts_lang_detect_common:
         try:
-            query = translator.translate(query, dest=texts_lang_detect_common).text
+            # query = translator.translate(query, dest=texts_lang_detect_common).text
             logger.info(f"Translated query: {query}")
         except Exception as e:
             logger.warning(f"Translation failed: {e}")

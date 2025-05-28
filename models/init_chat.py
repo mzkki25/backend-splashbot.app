@@ -254,5 +254,5 @@ class Chat:
                     'references': references,
                 }
             ]),
-            'last_response': response,
+            'last_response': response['explanation'],
         })
