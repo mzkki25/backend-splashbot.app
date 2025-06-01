@@ -6,15 +6,21 @@ from utils.semantic_search import (
     find_relevant_chunks_with_faiss, extract_pdf_text_by_page, 
     is_prompt_about_specific_table, find_pages_containing
 )
+
 from utils.makroeconomics import (
     two_wheels_model, four_wheels_model, retail_general_model,
     retail_beauty_model, retail_fnb_model, retail_drugstore_model
 )
+from utils.prompt.file_prompt import (
+    handle_file_pdf, handle_file_image
+)
+from utils.prompt.web_prompt import handle_web_prompt
 from utils.search_web import search_web_snippets
 from utils.follow_up_question import (
     recommend_follow_up_questions_gm,
     recommend_follow_up_questions_ngm
 )
+
 from PIL import Image
 from firebase_admin import firestore
 
@@ -105,55 +111,13 @@ class Chat:
                 relevant_text = find_relevant_chunks_with_faiss(pdf_pages, prompt.lower(), chunk_size=1024, top_k=5)
             
             response = model_2.generate_content(
-                f"""
-                    Kamu adalah **SPLASHBot**, AI Agent yang mengkhususkan diri dalam **analisis dokumen ekonomi**, khususnya file **PDF** yang diberikan oleh pengguna.
-
-                    ### Informasi yang Disediakan:
-                    - **Pertanyaan dari pengguna**:  
-                    "{prompt}"
-
-                    - **Konten relevan dari PDF**:  
-                    {relevant_text}
-
-                    - **Respons terakhir dari percakapan sebelumnya**:  
-                    {last_response}
-
-                    ### Aturan Penting:
-                    1. **Hanya jawab pertanyaan** jika isi PDF berkaitan dengan **ekonomi**.
-                    2. Soroti **kata kunci penting** dalam jawaban dengan **bold** agar mudah dikenali.
-                    3. Jawaban harus **jelas**, **fokus pada konteks ekonomi**, dan **berdasarkan isi PDF**.
-                    4. Buatlah kesimpulan dan rekomendasi yang **bernilai insight** dirangkum ke dalam poin-poin.
-
-                    ### Tugas:
-                    Berikan jawaban berbasis analisis isi PDF tersebut, dengan tetap menjaga fokus pada aspek ekonomi dan pertanyaan pengguna.
-                """
+                handle_file_pdf(prompt, relevant_text, last_response)
             ).text
 
         elif content_type.startswith('image/'):
             image = Image.open(io.BytesIO(file_content)).convert("RGB")
             response = multimodal_model_2.generate_content(
-               [
-                    "Kamu adalah **SPLASHBot**, AI analis yang **mengkhususkan diri di bidang ekonomi dan bisnis**, serta mampu **menganalisis gambar** yang relevan dengan topik tersebut.",
-                    image,
-                    f"""
-                        ### Konteks:
-
-                        - Pertanyaan dari pengguna: **{prompt}**
-                        - Respon terakhir dalam percakapan sebelumnya:  
-                        {last_response}
-
-                        ### Instruksi:
-
-                        1. Tinjau gambar yang diberikan.
-                        2. Jika **gambar tidak berkaitan dengan topik ekonomi atau bisnis**, **jangan memberikan jawaban apapun** selain menyatakan bahwa gambar tidak relevan.
-                        3. Jika gambar relevan, berikan **analisis ekonomi atau bisnis yang tajam dan bernilai**.
-                        4. Soroti **kata kunci penting** dalam jawaban dengan format **bold** untuk penekanan.
-                        5. Jawaban harus **padat, profesional, dan bernilai insight**—hindari narasi yang terlalu panjang atau di luar topik.
-
-                        ### Tujuan:
-                        Memberikan analisis **berbasis visual** dengan fokus pada **makna ekonomi**, seperti tren pasar, perilaku konsumen, pertumbuhan, distribusi wilayah, dsb.
-                    """
-                ]
+                handle_file_image(image, prompt, last_response)
             ).text
 
         else:
@@ -182,32 +146,7 @@ class Chat:
         references  = results.get("list_linked_results", [])
 
         response = model_2.generate_content(
-            f"""
-            Kamu adalah **SPLASHBot**, sebuah AI Agent yang ahli dalam menjawab pertanyaan seputar **ekonomi**, termasuk ekonomi makro, mikro, kebijakan fiskal/moneter, perdagangan, keuangan, dan indikator ekonomi.
-
-            ### Konteks Sebelumnya:
-            {last_response}
-
-            ### Pertanyaan dari Pengguna:
-            {prompt}
-
-            ### Informasi dari Internet:
-            {snippets}
-
-            ### Catatan Penting:
-            - Gunakan informasi dari internet dan pengetahuan terkini jika relevan dengan topik ekonomi.
-            - Abaikan informasi yang tidak berkaitan dengan ekonomi.
-            - Sisipkan tautan referensi secara **implisit dan alami ke dalam kalimat**, seperti gaya ChatGPT. Contoh:  
-              - _Produk Domestik Bruto (PDB) [Merupakan salah satu indikator terpenting yang mengukur total nilai barang dan jasa yang](https://www.metrotvnews.com/read/koGCR6qv-memahami-produk-domestik-bruto-dan-pentingnya-bagi-perekonomian)..._,  
-              - _positif dengan pertumbuhan ekonomi dalam jangka panjang [mungkin karena investasi pemerintah yang strategis](https://ejournal.uinib.ac.id/febi/index.php/maqdis/article/download/501/385)..._.
-            - Gunakan **penekanan (bold)** pada kata kunci penting agar poin-poin penting mudah dikenali.
-            - Hindari menjawab dengan "saya tidak tahu" atau "saya tidak bisa menjawab".
-            - Gunakan data atau pengetahuan yang tersedia untuk memberikan jawaban yang **informatif**, **jelas**, dan **relevan**.
-
-            ### Tugasmu:
-            Berikan jawaban yang **jelas**, **relevan**, dan **berbasis ekonomi** terhadap pertanyaan pengguna. 
-            Jika pertanyaannya **tidak berkaitan dengan ekonomi**, cukup balas dengan: _"Maaf, saya hanya dapat menjawab pertanyaan yang berkaitan dengan ekonomi."_
-            """
+            handle_web_prompt(last_response, prompt, snippets)
         ).text
 
         if response.__contains__("saya hanya dapat menjawab pertanyaan yang berkaitan dengan ekonomi"):

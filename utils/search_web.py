@@ -27,8 +27,8 @@ def search_web_snippets(user_query, num_results=8):
                 "snippet": snippet
             })
         
-        title_results = []
-        linked_results = []
+        title_results   = []
+        linked_results  = []
         snippet_results = []
 
         for linked_result in results:
@@ -37,10 +37,10 @@ def search_web_snippets(user_query, num_results=8):
             snippet_results.append(linked_result["snippet"])
 
         return {
-            "list_title_results": title_results,
-            "list_linked_results": linked_results,
-            "list_snippet_results": snippet_results,
-            "snippet_results": "\n".join(snippet_results),
+            "list_title_results"    : title_results,
+            "list_linked_results"   : linked_results,
+            "list_snippet_results"  : snippet_results,
+            "snippet_results"       : "\n".join(snippet_results),
         }
     
     except Exception as e:
