@@ -14,18 +14,57 @@ def fallback_response_prompt(text, df: pd.DataFrame):
 
     return command
 
-def macro_2wheels_prompt_1(df: pd.DataFrame, text: str, last_response: str = None):
+def macroeconomics_prompt_1(
+    types: str,
+    df: pd.DataFrame, text: str, last_response: str = None
+):
+    label = ""
+    target_var = ""
+    prediction_var = ""
+    satuan = ""
+
+    if types == "2 Wheels":
+        label = "2_wheels"
+        target_var = "jumlah_penjualan_sepeda_motor"
+        prediction_var = "prediksi_jumlah_penjualan_sepeda_motor"
+        satuan = "dalam satuan unit"
+    elif types == "4 Wheels":
+        label = "4_wheels"
+        target_var = "jumlah_penjualan_mobil"
+        prediction_var = "prediksi_jumlah_penjualan_mobil"
+        satuan = "dalam satuan unit"
+    elif types == "Retail Beauty":
+        label = "beauty"
+        target_var = "jumlah_pengeluaran_produk_kecantikan"
+        prediction_var = "prediksi_jumlah_pengeluaran_produk_kecantikan"
+        satuan = "dalam satuan rupiah"
+    elif types == "Retail Drugstore":
+        label = "drugstore"
+        target_var = "jumlah_pengeluaran_obat"
+        prediction_var = "prediksi_jumlah_pengeluaran_obat"
+        satuan = "dalam satuan rupiah"
+    elif types == "Retail FnB":
+        label = "fnb"
+        target_var = "jumlah_pengeluaran_fnb"
+        prediction_var = "prediksi_jumlah_pengeluaran_fnb"
+        satuan = "dalam satuan rupiah"
+    elif types == "Retail General":
+        label = "retail"
+        target_var = "jumlah_pengeluaran_retail"
+        prediction_var = "prediksi_jumlah_pengeluaran_retail"
+        satuan = "dalam satuan rupiah"
+
     command = f"""
         Kamu adalah **SPLASHBot**, sebuah AI Agent yang bertugas membuat **blok kode Python** untuk menjawab pertanyaan berbasis data 2 wheels menggunakan **pandas** dan **plotly**.
 
         ### Konteks Dataset:
-        - Dataset: `df = pd.read_csv('dataset/2_wheels.csv')` (sudah di-load sebelumnya)
+        - Dataset: `df = pd.read_csv('dataset/{label}.csv')` (sudah di-load sebelumnya)
         - Kolom: {df.columns.tolist()}
         - Provinsi (`prov`): {df['prov'].unique().tolist()}
         - Kota (`kab`): {df['kab'].unique().tolist()}
         - Tahun (`year`): {df['year'].unique().tolist()}
-        - Target utama: `penjualan` (unit)
-        - Prediksi: `prediksi` (unit)
+        - Target utama: `{target_var}` ({satuan})
+        - Prediksi: `{prediction_var}` ({satuan})
         - Kolom numerik: Semua selain `prov`, `kab` (termasuk `cluster` hasil KMeans)
         - Data NaN harus diisi dengan `fillna(0)`
 
@@ -48,12 +87,44 @@ def macro_2wheels_prompt_1(df: pd.DataFrame, text: str, last_response: str = Non
         - **"{text}"**
 
         ### Tugas Anda:
-        Tulis blok kode Python yang valid dan sesuai dengan instruksi di atas.
+        **Tulis blok kode Python yang valid dan sesuai dengan instruksi di atas.**
     """
 
     return command
 
-def macro_2wheels_prompt_2(generated_code, answer_the_code, text, df: pd.DataFrame, last_response: str = None):
+def macroeconomics_prompt_2(
+    types: str,
+    generated_code, answer_the_code, text, df: pd.DataFrame, last_response: str = None
+):
+    target_var = ""
+    prediction_var = ""
+    satuan = ""
+
+    if types == "2 Wheels":
+        target_var = "jumlah_penjualan_sepeda_motor"
+        prediction_var = "prediksi_jumlah_penjualan_sepeda_motor"
+        satuan = "dalam satuan unit"
+    elif types == "4 Wheels":
+        target_var = "jumlah_penjualan_mobil"
+        prediction_var = "prediksi_jumlah_penjualan_mobil"
+        satuan = "dalam satuan unit"
+    elif types == "Retail Beauty":
+        target_var = "jumlah_pengeluaran_produk_kecantikan"
+        prediction_var = "prediksi_jumlah_pengeluaran_produk_kecantikan"
+        satuan = "dalam satuan rupiah"
+    elif types == "Retail Drugstore":
+        target_var = "jumlah_pengeluaran_obat"
+        prediction_var = "prediksi_jumlah_pengeluaran_obat"
+        satuan = "dalam satuan rupiah"
+    elif types == "Retail FnB":
+        target_var = "jumlah_pengeluaran_fnb"
+        prediction_var = "prediksi_jumlah_pengeluaran_fnb"
+        satuan = "dalam satuan rupiah"
+    elif types == "Retail General":
+        target_var = "jumlah_pengeluaran_retail"
+        prediction_var = "prediksi_jumlah_pengeluaran_retail"
+        satuan = "dalam satuan rupiah"
+
     command = f"""
         ### Konteks:
 
@@ -76,10 +147,10 @@ def macro_2wheels_prompt_2(generated_code, answer_the_code, text, df: pd.DataFra
 
         ### Konteks Dataset:
         - Fitur: {df.columns.tolist()}
-        - Target utama: `penjualan` (unit) -> tidak null untuk tahun 2020 sd 2023 dan null untuk tahun 2024 dan 2025 (karena tahun 2024 dan 2025 adalah data yang hanya ada di `prediksi`)
-        - Prediksi: `prediksi` (unit) -> tidak null untuk tahun 2020 sd 2025
-        - Error Value: `error_value` -> nilai error dari model yang dilatih sebelumnya -> tidak null untuk tahun 2020 sd 2023 dan null untuk tahun 2024 dan 2025 (karena tahun 2024 dan 2025 adalah data yang hanya ada di `prediksi`)
-        - Absolute Percentage Error: `APE` -> selisih dari `prediksi` dan `penjualan` dibagi `penjualan` -> tidak null untuk tahun 2020 sd 2023 dan null untuk tahun 2024 dan 2025
+        - Target utama: `{target_var}` ({satuan}) -> tidak null untuk tahun 2020 sd 2023 dan null untuk tahun 2024 dan 2025 (karena tahun 2024 dan 2025 adalah data yang hanya ada di `{prediction_var}`)
+        - Prediksi: `{prediction_var}` ({satuan}) -> tidak null untuk tahun 2020 sd 2025
+        - Error Value: `error_value` -> nilai error dari model yang dilatih sebelumnya -> tidak null untuk tahun 2020 sd 2023 dan null untuk tahun 2024 dan 2025 (karena tahun 2024 dan 2025 adalah data yang hanya ada di `{prediction_var}`)
+        - Absolute Percentage Error: `APE` -> selisih dari `{prediction_var}` dan `{target_var}` dibagi `{target_var}` -> tidak null untuk tahun 2020 sd 2023 dan null untuk tahun 2024 dan 2025
         - Kolom numerik: Semua selain `prov`, `kab` (termasuk `cluster` hasil KMeans)
 
         ### Tugas Anda:
@@ -93,7 +164,7 @@ def macro_2wheels_prompt_2(generated_code, answer_the_code, text, df: pd.DataFra
         ### Format Jawaban:
         - Berikan jawaban dalam bentuk **poin-poin ringkas dan padat**.
         - Soroti hal-hal yang **penting dengan cetak tebal (bold)**.
-        - Fokus pada **kesimpulan, strategi, dan dampak bisnis ** dari hasil tersebut.
+        - Fokus pada **kesimpulan, strategi, dan dampak bisnis** dari hasil tersebut.
 
         Jika hasil aktual tidak mengandung informasi bermakna secara bisnis, sampaikan hal itu secara ringkas dan profesional.
     """
