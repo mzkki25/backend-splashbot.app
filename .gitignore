@@ -3,7 +3,6 @@ dataset
 api_test.ipynb
 utils.ipynb
 credentials.json
-logging
 utils/prompt
 __pycache__
 .env
