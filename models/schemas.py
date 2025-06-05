@@ -1,8 +1,8 @@
 from typing import Optional, List, Literal, Dict, Union
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, EmailStr
 
 class UserCreate(BaseModel):
-    email: str
+    email: str = EmailStr
     username: str
     password: str
 
@@ -34,9 +34,17 @@ class ChatInit(BaseModel):
         "Retail Drugstore"
     ] = Field(default="General Macroeconomics")
 
+class FileUploadResponse(BaseModel):
+    success: bool
+    file_id: str
+    url: str
+
 class ChatResponse(BaseModel):
     response: str
-    file_url: Optional[str] = None
+    file_url: Optional[str]
+    created_at: str
+    references: Optional[List[str]] = []
+    follow_up_question: Optional[str] = None
 
 class ChatHistory(BaseModel):
     chat_session_id: str

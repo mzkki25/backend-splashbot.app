@@ -1,4 +1,5 @@
 from fastapi import HTTPException
+from typing import List, Dict, Any, Tuple, Optional, Union, Literal
 
 from core.firebase import db, bucket
 from core.gemini import model_2, multimodal_model_2
@@ -81,7 +82,7 @@ class Chat:
 
         return response, file_url, references, follow_up_question
 
-    def _handle_file_prompt(self, prompt, file_id_input, last_response):
+    def _handle_file_prompt(self, prompt: str, file_id_input: str, last_response: str) -> Tuple[Optional[str], Dict[str, Any]]:
         file_doc = db.collection('files').document(file_id_input).get()
         if not file_doc.exists:
             raise HTTPException(status_code=404, detail="File not found")
@@ -128,7 +129,7 @@ class Chat:
             "result": None
         }
     
-    def _format_snippets(self, search_results):
+    def _format_snippets(self, search_results) -> str:
         titles = search_results.get("list_title_results", [])
         links = search_results.get("list_linked_results", [])
         snippets = search_results.get("list_snippet_results", [])
@@ -140,7 +141,7 @@ class Chat:
         formatted = [f"**{i+1}.** {sentence}" for i, sentence in enumerate(formatted)]
         return "\n".join(formatted)
 
-    def _handle_web_prompt(self, prompt, last_response):
+    def _handle_web_prompt(self, prompt, last_response) -> Tuple[Dict[str, Any], List[str]]:
         results = search_web_snippets(prompt, num_results=5)
         snippets    = self._format_snippets(results)
         references  = results.get("list_linked_results", [])
@@ -157,7 +158,13 @@ class Chat:
             "result": None
         }, references
 
-    def _handle_custom_model(self, chat_option, prompt, user_id, last_response):
+    def _handle_custom_model(self, 
+        chat_option: Union[Literal[
+            "2 Wheels", "4 Wheels", "Retail General", 
+            "Retail Beauty", "Retail FnB", "Retail Drugstore"
+        ]],
+        prompt: str, user_id: str, last_response: str
+    ) -> Dict[str, Any]:
         model_map = {
             "2 Wheels": two_wheels_model,
             "4 Wheels": four_wheels_model,

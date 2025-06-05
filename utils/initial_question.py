@@ -1,5 +1,4 @@
 from core.gemini import model
-from utils.search_web import search_web_snippets
 from utils.prompt.initial_question_prompt import (
     init_question_gm, init_question_ngm
 )
