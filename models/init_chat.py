@@ -12,10 +12,10 @@ from utils.makroeconomics import (
     two_wheels_model, four_wheels_model, retail_general_model,
     retail_beauty_model, retail_fnb_model, retail_drugstore_model
 )
-from utils.prompt.file_prompt import (
+from helper.prompt.file_prompt import (
     handle_file_pdf, handle_file_image
 )
-from utils.prompt.web_prompt import handle_web_prompt
+from helper.prompt.web_prompt import handle_web_prompt
 from utils.search_web import search_web_snippets
 from utils.follow_up_question import (
     recommend_follow_up_questions_gm,

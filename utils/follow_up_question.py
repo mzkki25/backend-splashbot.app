@@ -1,6 +1,6 @@
 from core.gemini import model
 from utils.preprocessing import clean_python_list
-from utils.prompt.follow_up_question_prompt import (
+from helper.prompt.follow_up_question_prompt import (
     follow_up_question_gm, follow_up_question_ngm
 )
 
@@ -40,17 +40,17 @@ def recommend_follow_up_questions_gm(prompt, response, file_id_input=None):
 def recommend_follow_up_questions_ngm(prompt, response, chat_option):
     try:
         if chat_option == "2 Wheels":
-            df = pd.read_csv('dataset/2_wheels.csv')
+            df = pd.read_csv('helper/dataset/2_wheels.csv')
         elif chat_option == "4 Wheels":
-            df = pd.read_csv('dataset/4_wheels.csv')
+            df = pd.read_csv('helper/dataset/4_wheels.csv')
         elif chat_option == "Retail General":
-            df = pd.read_csv('dataset/retail.csv')
+            df = pd.read_csv('helper/dataset/retail.csv')
         elif chat_option == "Retail Beauty":
-            df = pd.read_csv('dataset/beauty.csv')
+            df = pd.read_csv('helper/dataset/beauty.csv')
         elif chat_option == "Retail FnB":
-            df = pd.read_csv('dataset/fnb.csv')
+            df = pd.read_csv('helper/dataset/fnb.csv')
         elif chat_option == "Retail Drugstore":
-            df = pd.read_csv('dataset/drugstore.csv')
+            df = pd.read_csv('helper/dataset/drugstore.csv')
 
         prompt = follow_up_question_ngm(chat_option, df, prompt, response)
 

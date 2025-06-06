@@ -1,5 +1,5 @@
 from core.gemini import model
-from utils.prompt.initial_question_prompt import (
+from helper.prompt.initial_question_prompt import (
     init_question_gm, init_question_ngm
 )
 
@@ -28,17 +28,17 @@ def initial_questions_gm(file_id_input=None):
 def initial_questions_ngm(chat_option):
     try:
         if chat_option == "2 Wheels":
-            df = pd.read_csv('dataset/2_wheels.csv')
+            df = pd.read_csv('helper/dataset/2_wheels.csv')
         elif chat_option == "4 Wheels":
-            df = pd.read_csv('dataset/4_wheels.csv')
+            df = pd.read_csv('helper/dataset/4_wheels.csv')
         elif chat_option == "Retail General":
-            df = pd.read_csv('dataset/retail.csv')
+            df = pd.read_csv('helper/dataset/retail.csv')
         elif chat_option == "Retail Beauty":
-            df = pd.read_csv('dataset/beauty.csv')
+            df = pd.read_csv('helper/dataset/beauty.csv')
         elif chat_option == "Retail FnB":
-            df = pd.read_csv('dataset/fnb.csv')
+            df = pd.read_csv('helper/dataset/fnb.csv')
         elif chat_option == "Retail Drugstore":
-            df = pd.read_csv('dataset/drugstore.csv')
+            df = pd.read_csv('helper/dataset/drugstore.csv')
 
         prompt = init_question_ngm(chat_option, df)
 

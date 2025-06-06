@@ -5,7 +5,7 @@ import time
 import json
 
 from core.firebase import bucket
-from utils.prompt.macroeconomics_prompt import (
+from helper.prompt.macroeconomics_prompt import (
     fallback_response_prompt, macroeconomics_prompt_1, macroeconomics_prompt_2
 )
 from core.gemini import model, model_2
@@ -76,7 +76,7 @@ def handle_fallback_response(text, df, e):
 # ===== Model Functions ===== #
 
 def two_wheels_model(text, user_id, last_response):
-    df = pd.read_csv('dataset/2_wheels.csv')
+    df = pd.read_csv('helper/dataset/2_wheels.csv')
     uid = str(uuid.uuid4())
     filepath = f"utils/_generated_code_{uid}.py"
 
@@ -97,7 +97,7 @@ def two_wheels_model(text, user_id, last_response):
             pass
 
 def four_wheels_model(text, user_id, last_response):
-    df = pd.read_csv('dataset/4_wheels.csv')
+    df = pd.read_csv('helper/dataset/4_wheels.csv')
     uid = str(uuid.uuid4())
     filepath = f"utils/_generated_code_{uid}.py"
 
@@ -118,7 +118,7 @@ def four_wheels_model(text, user_id, last_response):
             pass
 
 def retail_general_model(text, user_id, last_response):
-    df = pd.read_csv('dataset/retail.csv')
+    df = pd.read_csv('helper/dataset/retail.csv')
     uid = str(uuid.uuid4())
     filepath = f"utils/_generated_code_{uid}.py"
 
@@ -139,7 +139,7 @@ def retail_general_model(text, user_id, last_response):
             pass
 
 def retail_beauty_model(text, user_id, last_response):
-    df = pd.read_csv('dataset/beauty.csv')
+    df = pd.read_csv('helper/dataset/beauty.csv')
     uid = str(uuid.uuid4())
     filepath = f"utils/_generated_code_{uid}.py"
 
@@ -160,7 +160,7 @@ def retail_beauty_model(text, user_id, last_response):
             pass
 
 def retail_fnb_model(text, user_id, last_response):
-    df = pd.read_csv('dataset/fnb.csv')
+    df = pd.read_csv('helper/dataset/fnb.csv')
     uid = str(uuid.uuid4())
     filepath = f"utils/_generated_code_{uid}.py"
 
@@ -181,7 +181,7 @@ def retail_fnb_model(text, user_id, last_response):
             pass
 
 def retail_drugstore_model(text, user_id, last_response):
-    df = pd.read_csv('dataset/drugstore.csv')
+    df = pd.read_csv('helper/dataset/drugstore.csv')
     uid = str(uuid.uuid4())
     filepath = f"utils/_generated_code_{uid}.py"
 

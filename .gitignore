@@ -1,8 +1,7 @@
-assets
-dataset
+__pycache__
+*.pyc
 api_test.ipynb
 utils.ipynb
-credentials.json
-utils/prompt
-__pycache__
+assets
+helper
 .env
