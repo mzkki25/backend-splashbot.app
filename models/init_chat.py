@@ -142,7 +142,7 @@ class Chat:
         return "\n".join(formatted)
 
     def _handle_web_prompt(self, prompt, last_response) -> Tuple[Dict[str, Any], List[str]]:
-        results = search_web_snippets(prompt, num_results=5)
+        results     = search_web_snippets(prompt, num_results=5)
         snippets    = self._format_snippets(results)
         references  = results.get("list_linked_results", [])
 
@@ -151,6 +151,9 @@ class Chat:
         ).text
 
         if response.__contains__("saya hanya dapat menjawab pertanyaan yang berkaitan dengan ekonomi"):
+            references = None
+        
+        if response.lower().__contains__("splash"):
             references = None
 
         return {
