@@ -51,11 +51,7 @@ class FileUploadService:
 
             logger.info(f"File upload response created: {file_upload_response}")
 
-            return {
-                "success": True,
-                "file_id": file_id,
-                "url": file_url
-            }
+            return file_upload_response.model_dump(mode='json', exclude_none=True)
 
         except Exception as e:
             logger.error(f"Error uploading file for user {self.user_id}: {str(e)}")

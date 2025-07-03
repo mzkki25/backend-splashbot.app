@@ -5,13 +5,14 @@ import faiss
 import langdetect
 import io
 
-from sklearn.metrics.pairwise import cosine_similarity
 from sentence_transformers import SentenceTransformer
+from typing import List, Optional
 
 sentence_model = SentenceTransformer('all-MiniLM-L6-v2')
 
 from core.logging_logger import setup_logger
 logger = setup_logger(__name__)
+
 
 def normalize_text(text):
     return re.sub(r"\s+", " ", text).strip().lower()
@@ -87,41 +88,46 @@ def find_relevant_chunks_with_faiss(texts: list, query: str, chunk_size: int = 5
     relevant_text = "\n\n".join([chunks[i] for i in indices[0]])
     return relevant_text
 
-# def find_relevant_chunks_with_cosim(texts: list, query: str, chunk_size: int = 500, top_k: int = 3) -> str: 
-#     chunks = []
+def extract_relevant_text_from_pdf(
+    file_content: bytes,
+    prompt: str,
+    chunk_size_default: int = 1024,
+    chunk_size_table: int = 4096,
+    top_k_default: int = 5,
+    top_k_table: int = 1
+) -> List[str]:
+    """
+    Mengekstrak teks yang relevan dari PDF berdasarkan prompt dan keyword tabel jika ada.
 
-#     query_lang_detect = safe_detect_lang(query)
-#     texts_lang_detect = [safe_detect_lang(text) for text in texts if text.strip()]
+    Parameters:
+        file_content (bytes): Konten PDF dalam bentuk bytes.
+        prompt (str): Prompt dari user.
+        chunk_size_default (int): Ukuran chunk default untuk pencarian.
+        chunk_size_table (int): Ukuran chunk jika berisi keyword tabel.
+        top_k_default (int): Jumlah top chunk yang diambil (default).
+        top_k_table (int): Jumlah top chunk untuk keyword tabel.
+
+    Returns:
+        List[str]: List teks relevan yang ditemukan.
+    """
     
-#     if not texts_lang_detect:
-#         logger.warning("No valid texts for language detection. Defaulting to 'id'.")
-#         texts_lang_detect_common = "id"
-#     else:
-#         texts_lang_detect_common = max(set(texts_lang_detect), key=texts_lang_detect.count)
+    pdf_pages = extract_pdf_text_by_page(file_content)
+    table_keyword = is_prompt_about_specific_table(prompt)
 
-#     logger.info(f"Query language detected: {query_lang_detect}")
-#     logger.info(f"Texts language detected: {texts_lang_detect}")
-
-#     if query_lang_detect != texts_lang_detect_common:
-#         try:
-#             query = translator.translate(query, dest=texts_lang_detect_common).text
-#             logger.info(f"Translated query: {query}")
-#         except Exception as e:
-#             logger.warning(f"Translation failed: {e}")
-
-#     for text in texts:
-#         if text.strip():  # Hindari text kosong
-#             chunks.extend([text[i:i+chunk_size] for i in range(0, len(text), chunk_size)])
-
-#     if not chunks:
-#         logger.warning("No chunks generated from texts.")
-#         return ""
-
-#     chunk_embeddings = sentence_model.encode(chunks)
-#     query_embedding = sentence_model.encode(query)
-
-#     similarities = cosine_similarity([query_embedding], chunk_embeddings)[0]
-#     top_indices = similarities.argsort()[-top_k:][::-1]
-
-#     relevant_text = "\n\n".join([chunks[i] for i in top_indices])
-#     return relevant_text
+    if table_keyword:
+        filtered_pages = find_pages_containing(pdf_pages, table_keyword)
+        if filtered_pages:
+            logger.info("Table found in filtered pages.")
+            return find_relevant_chunks_with_faiss(
+                filtered_pages, prompt.lower(), chunk_size=chunk_size_table, top_k=top_k_table
+            )
+        else:
+            logger.warning("Table not found in filtered pages, using all pages.")
+            return find_relevant_chunks_with_faiss(
+                pdf_pages, prompt.lower(), chunk_size=chunk_size_table, top_k=top_k_table
+            )
+    else:
+        logger.info("Table not found in prompt, using all pages.")
+        return find_relevant_chunks_with_faiss(
+            pdf_pages, prompt.lower(), chunk_size=chunk_size_default, top_k=top_k_default
+        )

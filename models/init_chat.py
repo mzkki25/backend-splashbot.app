@@ -3,10 +3,6 @@ from typing import List, Dict, Any, Tuple, Optional, Union, Literal
 
 from core.firebase import db, bucket
 from core.gemini import model_2, multimodal_model_2
-from utils.semantic_search import (
-    find_relevant_chunks_with_faiss, extract_pdf_text_by_page, 
-    is_prompt_about_specific_table, find_pages_containing
-)
 
 from utils.makroeconomics import (
     two_wheels_model, four_wheels_model, retail_general_model,
@@ -21,6 +17,7 @@ from utils.follow_up_question import (
     recommend_follow_up_questions_gm,
     recommend_follow_up_questions_ngm
 )
+from google.generativeai.types import file_types
 
 from PIL import Image
 from firebase_admin import firestore
@@ -28,6 +25,8 @@ from firebase_admin import firestore
 import io
 import uuid
 import datetime
+import time
+import google.generativeai as gemini
 
 from core.logging_logger import setup_logger
 logger = setup_logger(__name__)
@@ -70,7 +69,7 @@ class Chat:
 
         if chat_option == "General Macroeconomics":
             if file_id_input:
-                file_url, response = self._handle_file_prompt(prompt, file_id_input, last_response)
+                response, file_url = self._handle_file_prompt(prompt, file_id_input, last_response)
                 follow_up_question = recommend_follow_up_questions_gm(prompt, response['explanation'], file_id_input)
             else:
                 response, references = self._handle_web_prompt(prompt, last_response)
@@ -81,8 +80,56 @@ class Chat:
             file_id_input = None
 
         return response, file_url, references, follow_up_question
+    
+    def _upload_pdf_to_gemini(self, pdf_bytes: bytes) -> Dict[str, Any]:
+        pdf_stream: bytes = io.BytesIO(pdf_bytes)
 
-    def _handle_file_prompt(self, prompt: str, file_id_input: str, last_response: str) -> Tuple[Optional[str], Dict[str, Any]]:
+        try:
+            uploaded_file: file_types.File = gemini.upload_file(
+                path=pdf_stream,
+                display_name="PDF Document",
+                mime_type="application/pdf"
+            )
+            
+            while uploaded_file.state.name == "PROCESSING":
+                logger.info("Processing file...")
+                time.sleep(1)
+                uploaded_file = gemini.get_file(uploaded_file.name)
+            
+            if uploaded_file.state.name == "FAILED":
+                raise Exception("File processing failed")
+            
+            file_name = uploaded_file.display_name or "Uploaded File"
+            
+            return {
+                "file_name": file_name,
+                "file_id": uploaded_file.name,
+                "file": uploaded_file,
+            }
+            
+        except Exception as e:
+            return f"Error: {e}"
+        
+    def _delete_gemini_file(self, file_id: str) -> None:
+        try:
+            gemini.delete_file(file_id)
+            logger.info(f"File {file_id} deleted successfully.")
+        except Exception as e:
+            logger.error(f"Error deleting file {file_id}: {e}")
+
+    def _format_snippets(self, search_results) -> str:
+        titles = search_results.get("list_title_results", [])
+        links = search_results.get("list_linked_results", [])
+        snippets = search_results.get("list_snippet_results", [])
+
+        formatted = []
+        for title, link, snippet in zip(titles, links, snippets):
+            formatted.append(f"**{title}**\n{snippet}\n[Link]({link})\n")
+            
+        formatted = [f"**{i+1}.** {sentence}" for i, sentence in enumerate(formatted)]
+        return "\n".join(formatted)
+
+    def _handle_file_prompt(self, prompt: str, file_id_input: str, last_response: str) -> Tuple[Dict[str, Any], Optional[str]]:
         file_doc = db.collection('files').document(file_id_input).get()
         if not file_doc.exists:
             raise HTTPException(status_code=404, detail="File not found")
@@ -96,24 +143,17 @@ class Chat:
         file_content = blob.download_as_bytes()
 
         if 'application/pdf' in content_type:
-            pdf_pages = extract_pdf_text_by_page(file_content)
-            table_keyword = is_prompt_about_specific_table(prompt)
+            pdf_file = self._upload_pdf_to_gemini(file_content)
 
-            if table_keyword:
-                filtered_pages = find_pages_containing(pdf_pages, table_keyword)
-                if filtered_pages:
-                    logger.info(f"Table found in filtered pages.")
-                    relevant_text = find_relevant_chunks_with_faiss(filtered_pages, prompt.lower(), chunk_size=4096, top_k=1)
-                else:
-                    logger.warning(f"Table not found in filtered pages, using all pages.")
-                    relevant_text = find_relevant_chunks_with_faiss(pdf_pages, prompt.lower(), chunk_size=4096, top_k=1)
-            else:
-                logger.info(f"Table not found in prompt, using all pages.")
-                relevant_text = find_relevant_chunks_with_faiss(pdf_pages, prompt.lower(), chunk_size=1024, top_k=5)
+            if isinstance(pdf_file, str):
+                raise HTTPException(status_code=500, detail=pdf_file)
             
             response = model_2.generate_content(
-                handle_file_pdf(prompt, relevant_text, last_response)
+                handle_file_pdf(prompt, pdf_file['file'], last_response)
             ).text
+
+            time.sleep(0.5)
+            self._delete_gemini_file(pdf_file['file_id'])
 
         elif content_type.startswith('image/'):
             image = Image.open(io.BytesIO(file_content)).convert("RGB")
@@ -124,22 +164,10 @@ class Chat:
         else:
             raise HTTPException(status_code=400, detail="Unsupported file type")
 
-        return file_url, {
+        return {
             "explanation": response,
             "result": None
-        }
-    
-    def _format_snippets(self, search_results) -> str:
-        titles = search_results.get("list_title_results", [])
-        links = search_results.get("list_linked_results", [])
-        snippets = search_results.get("list_snippet_results", [])
-
-        formatted = []
-        for title, link, snippet in zip(titles, links, snippets):
-            formatted.append(f"**{title}**\n{snippet}\n[Link]({link})\n")
-            
-        formatted = [f"**{i+1}.** {sentence}" for i, sentence in enumerate(formatted)]
-        return "\n".join(formatted)
+        }, file_url
 
     def _handle_web_prompt(self, prompt, last_response) -> Tuple[Dict[str, Any], List[str]]:
         results     = search_web_snippets(prompt, num_results=5)
