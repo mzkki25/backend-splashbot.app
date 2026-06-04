@@ -221,27 +221,46 @@ def clean_code(code: str) -> str:
     return code
 
 
-async def _generate_follow_up_gm(prompt: str, response: str) -> str | None:
-    fup_prompt = f"""Kamu adalah SPLASHBot. Buatlah 1 pertanyaan lanjutan singkat tentang ekonomi berdasarkan:
-    Pertanyaan user: "{prompt}"
-    Jawaban: "{response}"
+async def _generate_follow_up_gm(prompt: str, response: str) -> list[str] | None:
+    fup_prompt = f"""Kamu adalah SPLASHBot. Buatlah hingga 3 pertanyaan lanjutan singkat tentang ekonomi berdasarkan:
+Pertanyaan user: "{prompt}"
+Jawaban singkat: "{response[:500]}"
 
-    Format: hanya teks pertanyaan, tanpa tanda kutip atau penjelasan."""
+Format: list Python, contoh: ["Pertanyaan 1?", "Pertanyaan 2?"]
+Hanya list, tanpa penjelasan."""
 
-    result = llm_code_gen.invoke(fup_prompt).content.strip()
-    return result if result else None
+    raw = llm_code_gen.invoke(fup_prompt).content.strip()
+    raw = raw.replace("```python", "").replace("```", "").strip()
+    try:
+        import ast
+        result = ast.literal_eval(raw)
+        if isinstance(result, list) and len(result) > 0:
+            return result[:3]
+    except Exception:
+        pass
+    lines = [q.strip(" \"'[]") for q in raw.split(",") if q.strip(" \"'[]")]
+    return lines[:3] if lines else None
 
 
-async def _generate_follow_up_ngm(prompt: str, response: str, chat_option: str) -> str | None:
-    df = load_dataset(chat_option)
+async def _generate_follow_up_ngm(prompt: str, response: str, chat_option: str) -> list[str] | None:
     info = get_dataset_info(chat_option)
-    fup_prompt = f"""Kamu adalah SPLASHBot. Buatlah 1 pertanyaan lanjutan singkat tentang data {chat_option} berdasarkan:
-    Pertanyaan user: "{prompt}"
-    Jawaban: "{response}"
-    Kota tersedia: {info['cities'][:10]}
-    Tahun tersedia: {info['years']}
+    fup_prompt = f"""Kamu adalah SPLASHBot. Buatlah hingga 3 pertanyaan lanjutan singkat tentang data {chat_option} berdasarkan:
+Pertanyaan user: "{prompt}"
+Jawaban singkat: "{response[:500]}"
+Kota tersedia: {info['cities'][:10]}
+Tahun tersedia: {info['years']}
 
-    Format: hanya teks pertanyaan, tanpa tanda kutip atau penjelasan."""
+Format: list Python, contoh: ["Pertanyaan 1?", "Pertanyaan 2?"]
+Hanya list, tanpa penjelasan."""
 
-    result = llm_code_gen.invoke(fup_prompt).content.strip()
-    return result if result else None
+    raw = llm_code_gen.invoke(fup_prompt).content.strip()
+    raw = raw.replace("```python", "").replace("```", "").strip()
+    try:
+        import ast
+        result = ast.literal_eval(raw)
+        if isinstance(result, list) and len(result) > 0:
+            return result[:3]
+    except Exception:
+        pass
+    lines = [q.strip(" \"'[]") for q in raw.split(",") if q.strip(" \"'[]")]
+    return lines[:3] if lines else None

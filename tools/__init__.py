@@ -22,8 +22,34 @@ class WebSearchTool(BaseTool):
 
 def search_web(query: str, num_results: int = 5) -> list[dict]:
     try:
-        with DDGS() as ddgs:
+        with DDGS(timeout=10) as ddgs:
             results = list(ddgs.text(query, max_results=num_results))
         return [{"title": r["title"], "link": r["href"], "snippet": r["body"]} for r in results]
-    except Exception as e:
-        return [{"title": "Search error", "link": "", "snippet": str(e)}]
+    except Exception:
+        pass
+
+    try:
+        import requests
+        url = "https://api.duckduckgo.com"
+        params = {"q": query, "format": "json", "no_html": 1, "skip_disambig": 1}
+        resp = requests.get(url, params=params, timeout=10).json()
+        results = []
+        for topic in resp.get("RelatedTopics", [])[:num_results]:
+            if isinstance(topic, dict) and "Text" in topic:
+                results.append({
+                    "title": topic.get("FirstURL", "").split("/")[-1].replace("_", " "),
+                    "link": topic.get("FirstURL", ""),
+                    "snippet": topic.get("Text", ""),
+                })
+        if results:
+            return results
+    except Exception:
+        pass
+
+    return [
+        {
+            "title": "Pencarian tidak tersedia",
+            "link": "",
+            "snippet": "Maaf, layanan pencarian web sedang tidak tersedia. Silakan coba lagi nanti.",
+        }
+    ]
