@@ -1,6 +1,6 @@
 from typing import Any
 import pandas as pd
-from helper.prompt.macroeconomics_prompt import (
+from prompt.macroeconomics_prompt import (
     macroeconomics_prompt_1,
     macroeconomics_prompt_2,
     fallback_response_prompt,

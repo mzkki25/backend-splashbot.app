@@ -30,7 +30,7 @@ langchain-community==0.3.14
 google-generativeai==0.8.4
 
 # Web Search
-duckduckgo-search==7.5.1
+ddgs
 
 # Data Processing
 pandas==2.2.2

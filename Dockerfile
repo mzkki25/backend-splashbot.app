@@ -22,4 +22,4 @@ RUN pip install --upgrade pip && pip install -r requirements.txt
 RUN mkdir -p static/upload
 
 EXPOSE 8000
-CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--proxy-headers"]
+CMD sh -c "alembic upgrade head && uvicorn main:app --host 0.0.0.0 --port 8000 --proxy-headers"

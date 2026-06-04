@@ -1,6 +1,6 @@
 from typing import Optional
-from helper.prompt.web_prompt import handle_web_prompt
-from helper.prompt.file_prompt import handle_file_pdf, handle_file_image
+from prompt.web_prompt import handle_web_prompt
+from prompt.file_prompt import handle_file_pdf, handle_file_image
 
 
 def build_macro_prompt(last_response: str | None, prompt: str, snippets: str) -> str:

@@ -6,9 +6,10 @@ from fastapi import HTTPException, status
 
 from models.chat import ChatSession
 from schemas.chat import ChatHistoryItem
-from core.logger import setup_logger
+from memory.chat_memory import clear_session
+from core.logger import get_logger
 
-logger = setup_logger(__name__)
+logger = get_logger(__name__)
 
 
 class HistoryController:
@@ -38,6 +39,7 @@ class HistoryController:
             raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Unauthorized access")
         await db.delete(session)
         await db.commit()
+        clear_session(session_id)
         return {"success": True}
 
     @staticmethod

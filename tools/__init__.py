@@ -1,9 +1,14 @@
 import json
+import requests
+
 from typing import Type
 from langchain_core.tools import BaseTool
 from pydantic import BaseModel, Field
 
-from duckduckgo_search import DDGS
+from ddgs import DDGS
+from core.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 class WebSearchInput(BaseModel):
@@ -21,15 +26,21 @@ class WebSearchTool(BaseTool):
 
 
 def search_web(query: str, num_results: int = 5) -> list[dict]:
+    logger.info(f"Web search: query='{query[:80]}...', num_results={num_results}")
     try:
-        with DDGS(timeout=10) as ddgs:
+        with DDGS() as ddgs:
             results = list(ddgs.text(query, max_results=num_results))
-        return [{"title": r["title"], "link": r["href"], "snippet": r["body"]} for r in results]
+            logger.debug(f"DDGS returned {len(results)} results")
+            
+        return [{
+            "title": r["title"], 
+            "snippet": r["body"],
+            "link": r["href"], 
+        } for r in results]
     except Exception:
-        pass
+        logger.warning("DDGS search failed, falling back to DuckDuckGo API")
 
     try:
-        import requests
         url = "https://api.duckduckgo.com"
         params = {"q": query, "format": "json", "no_html": 1, "skip_disambig": 1}
         resp = requests.get(url, params=params, timeout=10).json()
@@ -46,6 +57,7 @@ def search_web(query: str, num_results: int = 5) -> list[dict]:
     except Exception:
         pass
 
+    logger.warning("All search methods failed, returning fallback message")
     return [
         {
             "title": "Pencarian tidak tersedia",

@@ -2,7 +2,11 @@ from fastapi import APIRouter, HTTPException, status
 from fastapi.responses import JSONResponse
 
 from core.gemini import llm_code_gen
-from tools.csv_tool import load_dataset, get_dataset_info
+from core.logger import get_logger
+from tools.csv_tool import load_dataset
+from prompt.initial_question_prompt import init_question_gm, init_question_ngm
+
+logger = get_logger(__name__)
 
 router = APIRouter()
 
@@ -10,53 +14,36 @@ router = APIRouter()
 @router.get("")
 async def init_question(chat_option: str) -> JSONResponse:
     try:
+        logger.info(f"Initial question request, chat_option={chat_option}")
+
         if chat_option == "General Macroeconomics":
             initial_q = "Apa saja hal-hal utama yang dipelajari dalam ekonomi makro dan bagaimana pengaruhnya terhadap perekonomian suatu negara?"
-            prompt = f"""Anda adalah SPLASHBot asisten AI ahli ekonomi. Buat hingga 5 pertanyaan awal singkat tentang ekonomi dalam format list Python.
-
-Note: ini adalah initial question untuk user yang belum tahu apa yang harus ditanyakan.
-
-Topik awal: "{initial_q}"
-
-Tampilkan dalam format list Python:
-["Pertanyaan 1?", "Pertanyaan 2?", ...]
-
-Hanya list, tanpa penjelasan."""
-            response = llm_code_gen.invoke(prompt).content
-            response = response.replace("```python", "").replace("```", "").strip()
-            import ast
-            try:
-                questions = ast.literal_eval(response)
-            except Exception:
-                questions = [q.strip('"\'').strip() for q in response.strip("[]").split(",") if q.strip()]
-            init_questions = questions[:5]
+            prompt = init_question_gm(initial_q)
+            raw = llm_code_gen.invoke(prompt).content
         else:
             df = load_dataset(chat_option)
-            info = get_dataset_info(chat_option)
-            prompt = f"""Kamu adalah SPLASHBot AI Agent ahli ekonomi. Data tersedia:
-- Jenis: {chat_option}
-- Kolom: {info['columns']}
-- Kota: {info['cities'][:10]}
-- Provinsi: {info['provinces'][:5]}
-- Tahun: {info['years']}
+            prompt = init_question_ngm(chat_option, df)
+            raw = llm_code_gen.invoke(prompt).content
 
-Buat hingga 5 pertanyaan awal singkat untuk user dalam format list Python:
-["Pertanyaan 1?", "Pertanyaan 2?", ...]
+        raw = raw.replace("```python", "").replace("```", "").strip()
+        import ast
+        try:
+            questions = ast.literal_eval(raw)
+            if not isinstance(questions, list):
+                questions = []
+        except Exception:
+            questions = [q.strip('"\'').strip() for q in raw.strip("[]").split(",") if q.strip()]
 
-Hanya list, tanpa penjelasan."""
+        import numpy as np
+        num = np.random.randint(3, 6)
+        if len(questions) > num:
+            questions = np.random.choice(questions, num, replace=False).tolist()
 
-            response = llm_code_gen.invoke(prompt).content
-            response = response.replace("```python", "").replace("```", "").strip()
-            import ast
-            try:
-                questions = ast.literal_eval(response)
-            except Exception:
-                questions = [q.strip('"\'').strip() for q in response.strip("[]").split(",") if q.strip()]
-            init_questions = questions[:5]
-
+        logger.info(f"Generated {len(questions)} initial questions for {chat_option}")
         return JSONResponse(
-            content={"init_questions": init_questions},
+            content={"init_questions": questions[:5]},
             status_code=status.HTTP_200_OK,
         )
     except Exception as e:
+        logger.error(f"Error generating initial questions: {e}", exc_info=True)
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail=str(e))

@@ -1,4 +1,4 @@
-from typing import Optional, List, Literal, Dict, Union
+from typing import Optional, List, Literal, Dict, Union, Any
 from pydantic import BaseModel, Field
 
 
@@ -34,7 +34,7 @@ class ChatRequest(BaseModel):
 
 
 class ChatResponse(BaseModel):
-    response: str
+    response: Union[str, Dict[str, Any]]
     file_url: Optional[str] = None
     created_at: str
     references: Optional[List[str]] = []
@@ -61,3 +61,4 @@ class ChatMessageItem(BaseModel):
     file_id: Optional[str] = None
     timestamp: Optional[str] = None
     references: Optional[List[str]] = None
+    chart_json: Optional[Dict[str, Any]] = None

@@ -6,6 +6,9 @@ from schemas.chat import ChatMessageItem
 from controllers.message_controller import MessageController
 from api.deps import get_current_user
 from core.database import get_db
+from core.logger import get_logger
+
+logger = get_logger(__name__)
 
 router = APIRouter()
 
@@ -16,4 +19,5 @@ async def get_chat_messages(
     user: Dict[str, Any] = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ) -> List[ChatMessageItem]:
+    logger.info(f"Fetching messages for session {chat_session}, user {user['uid']}")
     return await MessageController.get_messages(db, user["uid"], chat_session)

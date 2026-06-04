@@ -1,4 +1,7 @@
-from duckduckgo_search import DDGS
+from ddgs import DDGS
+from core.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 def search_web_snippets(user_query: str, num_results: int = 5) -> dict:
@@ -14,6 +17,8 @@ def search_web_snippets(user_query: str, num_results: int = 5) -> dict:
             links.append(r["href"])
             snippets_raw.append(r["body"])
 
+        logger.debug(f"Web snippets returned {len(results)} results for query '{user_query[:60]}...'")
+
         return {
             "list_title_results": titles,
             "list_linked_results": links,
@@ -21,7 +26,7 @@ def search_web_snippets(user_query: str, num_results: int = 5) -> dict:
             "snippet_results": "\n".join(snippets_raw),
         }
     except Exception as e:
-        print(f"Error fetching search results: {e}")
+        logger.error(f"Error fetching search results: {e}", exc_info=True)
         return {
             "list_title_results": [],
             "list_linked_results": [],

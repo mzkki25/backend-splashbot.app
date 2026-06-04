@@ -13,3 +13,4 @@ JWT_ALGORITHM = os.getenv("JWT_ALGORITHM", "HS256")
 JWT_EXPIRE_MINUTES = int(os.getenv("JWT_EXPIRE_MINUTES", "1440"))
 
 UPLOAD_DIR = os.getenv("UPLOAD_DIR", "static/upload")
+LIVE = os.getenv("LIVE", "development")

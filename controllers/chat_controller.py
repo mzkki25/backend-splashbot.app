@@ -10,9 +10,9 @@ from models.chat import ChatSession
 from models.message import Message
 from schemas.chat import ChatRequest
 from agents.graph import run_agent
-from core.logger import setup_logger
+from core.logger import get_logger
 
-logger = setup_logger(__name__)
+logger = get_logger(__name__)
 
 
 class ChatController:
@@ -46,7 +46,6 @@ class ChatController:
         else:
             if chat_session.user_id != uuid.UUID(user_id):
                 raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Unauthorized access")
-            last_response = chat_session.last_response
             last_file_id = str(chat_session.last_file_id) if chat_session.last_file_id else None
 
             if file_id and file_id != last_file_id:
@@ -63,6 +62,15 @@ class ChatController:
             file_id=file_id,
         )
 
+        response_content = result["response"]
+        if isinstance(response_content, dict):
+            response_str = response_content.get("explanation", str(response_content))
+        else:
+            response_str = response_content
+
+        chart_json = result.get("chart_json")
+        references = result.get("references")
+
         user_msg = Message(
             chat_session_id=uuid.UUID(chat_session_id),
             role="user",
@@ -74,18 +82,22 @@ class ChatController:
         assistant_msg = Message(
             chat_session_id=uuid.UUID(chat_session_id),
             role="assistant",
-            content=result["response"],
-            references=result.get("references"),
+            content=response_str,
+            references=references,
+            chart_json=__import__("json").dumps(chart_json) if chart_json else None,
         )
         db.add(assistant_msg)
 
-        chat_session.last_response = result["response"]
+        chat_session.last_response = response_str
         await db.commit()
 
+        if isinstance(response_content, dict) and chart_json:
+            response_content["result"] = chart_json
+
         return {
-            "response": result["response"],
+            "response": response_content,
             "file_url": result.get("file_url"),
             "created_at": result["created_at"],
-            "references": result.get("references", []),
+            "references": references or [],
             "follow_up_question": result.get("follow_up_question"),
         }

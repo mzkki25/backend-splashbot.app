@@ -1,22 +1,24 @@
-from langgraph.graph import StateGraph, END
-from langchain_core.messages import BaseMessage, HumanMessage, AIMessage
-
 from core.gemini import llm_code_gen, llm_analysis
-from core.config import UPLOAD_DIR
+from core.config import UPLOAD_DIR, LIVE
+from core.logger import get_logger
 from tools import search_web
 from tools.csv_tool import load_dataset, get_dataset_info
 from agents.macroeconomics_agent import build_macro_prompt, build_file_prompt
 from agents.data_analysis_agent import build_code_prompt, build_business_prompt, execute_code_stage, build_fallback_prompt
-from memory.chat_memory import get_message_history, set_agent_memory, get_agent_memory
+from memory.chat_memory import get_conversation_context, save_turn
+from prompt.follow_up_question_prompt import follow_up_question_gm, follow_up_question_ngm as fup_ngm_prompt_factory
 
 from PIL import Image
+from uuid import UUID
 
-import uuid
+import ast
 import google.generativeai as genai
 import io
 import os
 import time
 import datetime
+import pandas as pd
+import re
 
 from sqlalchemy import select
 from core.database import async_session
@@ -24,6 +26,7 @@ from models.file import File
 
 from schemas.agent import AgentState
 
+logger = get_logger(__name__)
 
 
 async def run_agent(
@@ -34,6 +37,8 @@ async def run_agent(
     file_id: str | None = None,
     file_url: str | None = None,
 ) -> dict:
+    logger.info(f"Agent entry: session={session_id}, user={user_id}, option={chat_option}, file_id={file_id}")
+
     state = AgentState(
         session_id=session_id,
         user_id=user_id,
@@ -48,18 +53,29 @@ async def run_agent(
         messages=[],
     )
 
-    if chat_option == "General Macroeconomics":
-        if file_id:
-            result = await _handle_file(state)
+    try:
+        if chat_option == "General Macroeconomics":
+            if file_id:
+                result = await _handle_file(state)
+            else:
+                result = await _handle_web_search(state)
         else:
-            result = await _handle_web_search(state)
-    else:
-        result = await _handle_data_analysis(state)
+            result = await _handle_data_analysis(state)
 
-    return result
+        response_str = result["response"]
+        if isinstance(response_str, dict):
+            response_str = response_str.get("explanation", str(response_str))
+        save_turn(session_id, prompt, response_str)
+
+        logger.info(f"Agent completed: session={session_id}")
+        return result
+    except Exception:
+        logger.error(f"Agent failed: session={session_id}, user={user_id}", exc_info=True)
+        raise
 
 
 async def _handle_web_search(state: AgentState) -> dict:
+    logger.info(f"Web search started for session {state['session_id']}")
     search_results = search_web(state["prompt"], num_results=5)
     references = [r["link"] for r in search_results if r["link"]]
     snippets_formatted = "\n\n".join(
@@ -67,19 +83,16 @@ async def _handle_web_search(state: AgentState) -> dict:
         for r in search_results
     )
 
-    last_response = get_agent_memory(state["session_id"], "last_response")
+    context = get_conversation_context(state["session_id"])
 
-    prompt_text = build_macro_prompt(last_response, state["prompt"], snippets_formatted)
+    prompt_text = build_macro_prompt(context, state["prompt"], snippets_formatted)
     response = llm_analysis.invoke(prompt_text).content
 
-    if "saya hanya dapat menjawab pertanyaan yang berkaitan dengan ekonomi" in response:
-        references = None
-    if "splash" in response.lower():
-        references = None
+    if "saya hanya dapat menjawab pertanyaan yang berkaitan dengan ekonomi" in response.lower():
+        references = references or []
 
     follow_up_q = await _generate_follow_up_gm(state["prompt"], response)
-
-    set_agent_memory(state["session_id"], "last_response", response)
+    logger.info(f"Web search completed for session {state['session_id']}")
 
     return {
         "response": response,
@@ -91,23 +104,29 @@ async def _handle_web_search(state: AgentState) -> dict:
 
 
 async def _handle_file(state: AgentState) -> dict:
+    logger.info(f"File processing started for session {state['session_id']}, file_id={state['file_id']}")
+
     async with async_session() as db:
-        from uuid import UUID
         result = await db.execute(select(File).where(File.id == UUID(state["file_id"])))
         file_record = result.scalar_one_or_none()
 
     if not file_record:
+        logger.warning(f"File not found: file_id={state['file_id']}")
         return {"response": "File not found", "file_url": None, "references": None, "follow_up_question": None, "created_at": state["created_at"]}
 
     file_path = file_record.storage_path
     content_type = file_record.content_type
     file_url = file_record.url
 
-    full_path = os.path.join(UPLOAD_DIR, os.path.relpath(file_path, UPLOAD_DIR + "/"))
-    if not os.path.exists(full_path):
-        full_path = file_path
+    logger.debug(f"File loaded: type={content_type}, path={file_path}")
 
-    last_response = get_agent_memory(state["session_id"], "last_response")
+    full_path = file_path
+    if not os.path.exists(full_path):
+        abs_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), file_path)
+        if os.path.exists(abs_path):
+            full_path = abs_path
+
+    context = get_conversation_context(state["session_id"])
 
     if "application/pdf" in content_type:
         with open(full_path, "rb") as f:
@@ -121,23 +140,23 @@ async def _handle_file(state: AgentState) -> dict:
             time.sleep(1)
             uploaded = genai.get_file(uploaded.name)
 
-        prompt_content = build_file_prompt(state["prompt"], uploaded, last_response)
-        multimodal_model = genai.GenerativeModel("gemini-2.0-flash-exp")
+        prompt_content = build_file_prompt(state["prompt"], uploaded, context)
+        multimodal_model = genai.GenerativeModel("gemini-3-flash-preview")
         response = multimodal_model.generate_content(prompt_content).text
         time.sleep(0.5)
         genai.delete_file(uploaded.name)
 
     elif content_type.startswith("image/"):
         image = Image.open(full_path).convert("RGB")
-        prompt_content = build_file_prompt(state["prompt"], image, last_response)
-        multimodal_model = genai.GenerativeModel("gemini-2.0-flash-exp")
+        prompt_content = build_file_prompt(state["prompt"], image, context)
+        multimodal_model = genai.GenerativeModel("gemini-3-flash-preview")
         response = multimodal_model.generate_content(prompt_content).text
 
     else:
         response = "Unsupported file type"
 
     follow_up_q = await _generate_follow_up_gm(state["prompt"], response)
-    set_agent_memory(state["session_id"], "last_response", response)
+    logger.info(f"File processing completed for session {state['session_id']}")
 
     return {
         "response": response,
@@ -149,22 +168,27 @@ async def _handle_file(state: AgentState) -> dict:
 
 
 async def _handle_data_analysis(state: AgentState) -> dict:
+    logger.info(f"Data analysis started for session {state['session_id']}, option={state['chat_option']}")
     chat_option = state["chat_option"]
     prompt = state["prompt"]
 
-    last_response = get_agent_memory(state["session_id"], "last_response")
+    context = get_conversation_context(state["session_id"])
     df = load_dataset(chat_option)
 
-    code_prompt = build_code_prompt(chat_option, df, prompt, last_response)
+    code_prompt = build_code_prompt(chat_option, df, prompt, context)
     raw_code = llm_code_gen.invoke(code_prompt).content
+    logger.debug(f"Code generation completed for session {state['session_id']}")
 
     cleaned_code = clean_code(raw_code)
+    if LIVE == "development":
+        logger.info(f"Generated code for session {state['session_id']}:\n{cleaned_code}")
     exec_result = execute_code_stage(chat_option, cleaned_code)
 
     if isinstance(exec_result, dict) and exec_result.get("type") == "error" and "Pertanyaan tidak dapat dijawab" in str(exec_result.get("message", "")):
+        logger.info(f"Question unanswerable via data analysis for session {state['session_id']}")
         fallback_prompt = build_fallback_prompt(prompt, df)
         fb_response = llm_code_gen.invoke(fallback_prompt).content
-        set_agent_memory(state["session_id"], "last_response", fb_response)
+        save_turn(state["session_id"], prompt, fb_response)
         return {
             "response": f"### Maaf, SPLASHBot Belum Dapat Menjawab :\n\n---\n{fb_response}",
             "file_url": None,
@@ -173,46 +197,51 @@ async def _handle_data_analysis(state: AgentState) -> dict:
             "created_at": state["created_at"],
         }
 
-    business_prompt = build_business_prompt(chat_option, cleaned_code, exec_result, prompt, df, last_response)
+    business_prompt = build_business_prompt(chat_option, cleaned_code, exec_result, prompt, df, context)
     explanation = llm_analysis.invoke(business_prompt).content
+    explanation = _clean_explanation(explanation)
 
-    formatted_result = _format_result(exec_result, state["user_id"])
+    chart_result = _format_result(exec_result, state["user_id"])
+    chart_json = None
 
-    full_response = f"### Ringkasan Temuan SPLASHBot:\n\n---\n{explanation}"
-    if formatted_result:
-        full_response += f"\n\n{formatted_result}"
+    if chart_result and chart_result.strip().startswith("{"):
+        chart_json = __import__("json").loads(chart_result)
+        response_obj = {
+            "explanation": f"### Ringkasan Temuan SPLASHBot:\n\n---\n{explanation}",
+            "result": None,
+        }
+    elif chart_result:
+        response_obj = f"### Ringkasan Temuan SPLASHBot:\n\n---\n{explanation}\n\n{chart_result}"
+    else:
+        response_obj = f"### Ringkasan Temuan SPLASHBot:\n\n---\n{explanation}"
 
     follow_up_q = await _generate_follow_up_ngm(prompt, explanation, chat_option)
-    set_agent_memory(state["session_id"], "last_response", explanation)
+    logger.info(f"Data analysis completed for session {state['session_id']}")
 
     return {
-        "response": full_response,
+        "response": response_obj,
         "file_url": None,
         "references": None,
         "follow_up_question": follow_up_q,
         "created_at": state["created_at"],
+        "chart_json": chart_json,
     }
 
 
 def _format_result(exec_result, user_id: str) -> str | None:
     if isinstance(exec_result, dict):
         if exec_result.get("type") == "dataframe":
-            import pandas as pd
             df = pd.DataFrame(exec_result["data"])
             return df.head(20).to_markdown(index=False, tablefmt="github")
         elif exec_result.get("type") == "dict":
-            json_str = __import__("json").dumps(exec_result["data"])
-            os.makedirs(os.path.join(UPLOAD_DIR, str(user_id)), exist_ok=True)
-            uid = str(uuid.uuid4() if "uuid" in dir() else __import__("uuid").uuid4())
-            json_path = os.path.join(UPLOAD_DIR, str(user_id), f"{uid}.json")
-            with open(json_path, "w") as f:
-                f.write(json_str)
-            return json_path
+            data = exec_result["data"]
+            if isinstance(data, dict) and "data" in data:
+                return __import__("json").dumps(data)
+            return __import__("json").dumps(data)
     return None
 
 
 def clean_code(code: str) -> str:
-    import re
     if "```python" in code:
         code = re.sub(r"(?s).*?```python\s*(.*?)\s*```.*", r"\1", code)
     elif "```" in code:
@@ -221,46 +250,36 @@ def clean_code(code: str) -> str:
     return code
 
 
+def _clean_explanation(text: str) -> str:
+    text = re.sub(r"^#*\s*Ringkasan Temuan SPLASHBot\s*:?\s*\n*", "", text.strip(), flags=re.IGNORECASE)
+    text = re.sub(r"^---+\s*\n*", "", text)
+    return text.strip()
+
+
 async def _generate_follow_up_gm(prompt: str, response: str) -> list[str] | None:
-    fup_prompt = f"""Kamu adalah SPLASHBot. Buatlah hingga 3 pertanyaan lanjutan singkat tentang ekonomi berdasarkan:
-Pertanyaan user: "{prompt}"
-Jawaban singkat: "{response[:500]}"
-
-Format: list Python, contoh: ["Pertanyaan 1?", "Pertanyaan 2?"]
-Hanya list, tanpa penjelasan."""
-
-    raw = llm_code_gen.invoke(fup_prompt).content.strip()
+    prompt_text = follow_up_question_gm(prompt, response)
+    raw = llm_code_gen.invoke(prompt_text).content.strip()
     raw = raw.replace("```python", "").replace("```", "").strip()
     try:
-        import ast
         result = ast.literal_eval(raw)
         if isinstance(result, list) and len(result) > 0:
-            return result[:3]
+            return result[:5]
     except Exception:
         pass
     lines = [q.strip(" \"'[]") for q in raw.split(",") if q.strip(" \"'[]")]
-    return lines[:3] if lines else None
+    return lines[:5] if lines else None
 
 
 async def _generate_follow_up_ngm(prompt: str, response: str, chat_option: str) -> list[str] | None:
-    info = get_dataset_info(chat_option)
-    fup_prompt = f"""Kamu adalah SPLASHBot. Buatlah hingga 3 pertanyaan lanjutan singkat tentang data {chat_option} berdasarkan:
-Pertanyaan user: "{prompt}"
-Jawaban singkat: "{response[:500]}"
-Kota tersedia: {info['cities'][:10]}
-Tahun tersedia: {info['years']}
-
-Format: list Python, contoh: ["Pertanyaan 1?", "Pertanyaan 2?"]
-Hanya list, tanpa penjelasan."""
-
-    raw = llm_code_gen.invoke(fup_prompt).content.strip()
+    df = load_dataset(chat_option)
+    prompt_text = fup_ngm_prompt_factory(chat_option, df, prompt, response)
+    raw = llm_code_gen.invoke(prompt_text).content.strip()
     raw = raw.replace("```python", "").replace("```", "").strip()
     try:
-        import ast
         result = ast.literal_eval(raw)
         if isinstance(result, list) and len(result) > 0:
-            return result[:3]
+            return result[:5]
     except Exception:
         pass
     lines = [q.strip(" \"'[]") for q in raw.split(",") if q.strip(" \"'[]")]
-    return lines[:3] if lines else None
+    return lines[:5] if lines else None

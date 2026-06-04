@@ -7,9 +7,9 @@ from fastapi import HTTPException, status
 from models.chat import ChatSession
 from models.message import Message
 from schemas.chat import ChatMessageItem
-from core.logger import setup_logger
+from core.logger import get_logger
 
-logger = setup_logger(__name__)
+logger = get_logger(__name__)
 
 
 class MessageController:
@@ -36,6 +36,7 @@ class MessageController:
                 file_id=str(m.file_id) if m.file_id else None,
                 timestamp=m.created_at.isoformat() if m.created_at else None,
                 references=m.references,
+                chart_json=__import__("json").loads(m.chart_json) if m.chart_json else None,
             )
             for m in messages
         ]

@@ -7,9 +7,9 @@ from fastapi import UploadFile, HTTPException, status
 from models.file import File
 from schemas.chat import FileUploadResponse
 from core.config import UPLOAD_DIR
-from core.logger import setup_logger
+from core.logger import get_logger
 
-logger = setup_logger(__name__)
+logger = get_logger(__name__)
 
 
 class FileController:

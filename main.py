@@ -13,14 +13,20 @@ from api import (
 )
 from core.database import init_db
 from core.config import UPLOAD_DIR
+from core.logger import get_logger
 import os
+
+logger = get_logger(__name__)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    logger.info("Starting SPLASHBot API...")
     os.makedirs(UPLOAD_DIR, exist_ok=True)
     await init_db()
+    logger.info("SPLASHBot API ready")
     yield
+    logger.info("Shutting down SPLASHBot API")
 
 
 app = FastAPI(title="SPLASHBot API", lifespan=lifespan)

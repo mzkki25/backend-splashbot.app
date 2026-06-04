@@ -1,8 +1,8 @@
 from core.gemini import llm_code_gen
 from tools.csv_tool import load_dataset, get_dataset_info
-from core.logger import setup_logger
+from core.logger import get_logger
 
-logger = setup_logger(__name__)
+logger = get_logger(__name__)
 
 
 def initial_questions_gm() -> list[str]:

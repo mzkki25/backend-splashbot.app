@@ -17,6 +17,7 @@ class Message(Base):
     content: Mapped[str] = mapped_column(Text, nullable=False)
     file_id: Mapped[uuid.UUID | None] = mapped_column(UUID(as_uuid=True), ForeignKey("files.id", ondelete="SET NULL"), nullable=True)
     references: Mapped[list | None] = mapped_column(ARRAY(Text), nullable=True)
+    chart_json: Mapped[str | None] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), server_default=func.now())
 
     chat_session: Mapped["ChatSession"] = relationship(back_populates="messages")

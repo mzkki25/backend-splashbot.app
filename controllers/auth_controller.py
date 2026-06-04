@@ -9,9 +9,9 @@ from models.user import User
 from schemas.chat import UserCreate, UserLogin, LoginResponse
 from core.config import JWT_EXPIRE_MINUTES
 from core.security import hash_password, verify_password, create_access_token
-from core.logger import setup_logger
+from core.logger import get_logger
 
-logger = setup_logger(__name__)
+logger = get_logger(__name__)
 
 
 class AuthController:
