@@ -1,55 +1,36 @@
-from core.gemini import model
-from helper.prompt.initial_question_prompt import (
-    init_question_gm, init_question_ngm
-)
+from core.gemini import llm_code_gen
+from tools.csv_tool import load_dataset, get_dataset_info
+from core.logger import setup_logger
 
-import pandas as pd
-import numpy as np
-import os
-
-from core.logging_logger import setup_logger
 logger = setup_logger(__name__)
 
-def initial_questions_gm(file_id_input=None):
-    if file_id_input:
-        return []
-    else:
-        initial_question = "Apa saja hal-hal utama yang dipelajari dalam ekonomi makro dan bagaimana pengaruhnya terhadap perekonomian suatu negara?"
 
-        prompt = init_question_gm(initial_question)
-        response = eval(model.generate_content(contents=prompt).text.replace("```python", "").replace("```", "").strip())
+def initial_questions_gm() -> list[str]:
+    initial_q = "Apa saja hal-hal utama yang dipelajari dalam ekonomi makro?"
+    prompt = f"""Anda adalah SPLASHBot AI ahli ekonomi. Buat 5 pertanyaan awal dalam format list Python tentang ekonomi makro.
+    Contoh: ["Bagaimana data PDB dapat digunakan?", ...]
+    Hanya list, tanpa penjelasan."""
 
-        num_questions = np.random.randint(3, 6)
-        if len(response) > num_questions:
-            response = np.random.choice(response, num_questions, replace=False).tolist()
-
-        return response
-
-def initial_questions_ngm(chat_option):
+    response = llm_code_gen.invoke(prompt).content
+    response = response.replace("```python", "").replace("```", "").strip()
+    import ast
     try:
-        if chat_option == "2 Wheels":
-            df = pd.read_csv('helper/dataset/2_wheels.csv')
-        elif chat_option == "4 Wheels":
-            df = pd.read_csv('helper/dataset/4_wheels.csv')
-        elif chat_option == "Retail General":
-            df = pd.read_csv('helper/dataset/retail.csv')
-        elif chat_option == "Retail Beauty":
-            df = pd.read_csv('helper/dataset/beauty.csv')
-        elif chat_option == "Retail FnB":
-            df = pd.read_csv('helper/dataset/fnb.csv')
-        elif chat_option == "Retail Drugstore":
-            df = pd.read_csv('helper/dataset/drugstore.csv')
+        return ast.literal_eval(response)[:5]
+    except Exception:
+        lines = [q.strip('"\'').strip() for q in response.strip("[]").split(",") if q.strip()]
+        return lines[:5]
 
-        prompt = init_question_ngm(chat_option, df)
 
-        response = eval(model.generate_content(contents=prompt).text.replace("```python", "").replace("```", "").strip())
-        num_questions = np.random.randint(3, 6)
+def initial_questions_ngm(chat_option: str) -> list[str]:
+    df = load_dataset(chat_option)
+    info = get_dataset_info(chat_option)
+    prompt = f"""Kamu SPLASHBot AI ahli ekonomi. Data: {chat_option}, kota={info['cities'][:10]}, tahun={info['years']}.
+    Buat 5 pertanyaan awal bisnis dalam format list Python. Hanya list."""
 
-        if len(response) > num_questions:
-            response = np.random.choice(response, num_questions, replace=False).tolist()
-
-        return response
-    
-    except Exception as e:
-        logger.error(f"Error generating initial questions for {chat_option}: {e}")
-        return []
+    response = llm_code_gen.invoke(prompt).content
+    response = response.replace("```python", "").replace("```", "").strip()
+    import ast
+    try:
+        return ast.literal_eval(response)[:5]
+    except Exception:
+        return response.strip("[]").split('",')[ :5]

@@ -1,18 +1,19 @@
 from fastapi import APIRouter, Depends
 from typing import List, Dict, Any
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from models.schemas import ChatMessage
-from services.chat_message_service import ChatMessageService
+from schemas.chat import ChatMessageItem
+from controllers.message_controller import MessageController
 from api.deps import get_current_user
+from core.database import get_db
 
 router = APIRouter()
-chat_message_service = ChatMessageService()
 
 
-@router.get("", response_model=List[ChatMessage])
+@router.get("", response_model=List[ChatMessageItem])
 async def get_chat_messages(
     chat_session: str,
-    user: Dict[str, Any] = Depends(get_current_user)
-) -> List[ChatMessage]:
-    user_id: str = user['uid']
-    return chat_message_service.get_messages(chat_session, user_id)
+    user: Dict[str, Any] = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> List[ChatMessageItem]:
+    return await MessageController.get_messages(db, user["uid"], chat_session)

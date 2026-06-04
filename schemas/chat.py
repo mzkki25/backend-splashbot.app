@@ -1,17 +1,26 @@
 from typing import Optional, List, Literal, Dict, Union
-from pydantic import BaseModel, Field, EmailStr
+from pydantic import BaseModel, Field
+
 
 class UserCreate(BaseModel):
-    email: str = EmailStr
+    email: str
     username: str
     password: str
+
 
 class UserLogin(BaseModel):
     email_or_username: str
     password: str
 
+
+class LoginResponse(BaseModel):
+    success: bool
+    user_id: str
+    token: str
+
+
 class ChatRequest(BaseModel):
-    prompt: str 
+    prompt: str
     file_id: Optional[str] = None
     chat_options: Literal[
         "General Macroeconomics",
@@ -20,42 +29,35 @@ class ChatRequest(BaseModel):
         "Retail General",
         "Retail Beauty",
         "Retail FnB",
-        "Retail Drugstore"
+        "Retail Drugstore",
     ] = Field(default="General Macroeconomics")
 
-class ChatInit(BaseModel):
-    chat_options: Literal[
-        "General Macroeconomics",
-        "2 Wheels",
-        "4 Wheels",
-        "Retail General",
-        "Retail Beauty",
-        "Retail FnB",
-        "Retail Drugstore"
-    ] = Field(default="General Macroeconomics")
+
+class ChatResponse(BaseModel):
+    response: str
+    file_url: Optional[str] = None
+    created_at: str
+    references: Optional[List[str]] = []
+    follow_up_question: Optional[str] = None
+
 
 class FileUploadResponse(BaseModel):
     success: bool
     file_id: str
     url: str
 
-class ChatResponse(BaseModel):
-    response: str
-    file_url: Optional[str]
-    created_at: str
-    references: Optional[List[str]] = []
-    follow_up_question: Optional[str] = None
 
-class ChatHistory(BaseModel):
+class ChatHistoryItem(BaseModel):
     chat_session_id: str
     title: str
     timestamp: str
 
-class ChatMessage(BaseModel):
+
+class ChatMessageItem(BaseModel):
     message_id: str
     chat_session_id: str
-    role: str  
+    role: str
     content: Union[str, Dict]
     file_id: Optional[str] = None
     timestamp: Optional[str] = None
-    references: Optional[List[str]] = None  
+    references: Optional[List[str]] = None

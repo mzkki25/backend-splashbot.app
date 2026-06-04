@@ -1,31 +1,31 @@
-from fastapi import APIRouter, status
+from fastapi import APIRouter, Depends, status
 from fastapi.responses import JSONResponse
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from models.schemas import UserCreate, UserLogin
-from services.auth_service import AuthService
+from schemas.chat import UserCreate, UserLogin
+from controllers.auth_controller import AuthController
+from core.database import get_db
 
 router = APIRouter()
 
-@router.post("/signup", response_model=UserCreate)
-async def signup(user: UserCreate):
-    user_id = AuthService.create_user(user)
+
+@router.post("/signup")
+async def signup(user: UserCreate, db: AsyncSession = Depends(get_db)):
+    user_id = await AuthController.create_user(db, user)
     return JSONResponse(
-        content={
-            "success": True,
-            "user_id": user_id
-        },
-        status_code=status.HTTP_201_CREATED
+        content={"success": True, "user_id": user_id},
+        status_code=status.HTTP_201_CREATED,
     )
 
 
-@router.post("/login", response_model=UserLogin)
-async def login(user: UserLogin):
-    auth_data = AuthService.authenticate_user(user)
+@router.post("/login")
+async def login(user: UserLogin, db: AsyncSession = Depends(get_db)):
+    auth_data = await AuthController.authenticate_user(db, user)
     return JSONResponse(
         content={
             "success": True,
             "user_id": auth_data["user_id"],
-            "token": auth_data["token"]
+            "token": auth_data["token"],
         },
-        status_code=status.HTTP_200_OK
+        status_code=status.HTTP_200_OK,
     )

@@ -1,27 +1,35 @@
 from fastapi import APIRouter, Depends
 from typing import List, Dict, Any
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from models.schemas import ChatHistory
-from services.chat_history_service import ChatHistoryService
+from schemas.chat import ChatHistoryItem
+from controllers.history_controller import HistoryController
 from api.deps import get_current_user
+from core.database import get_db
 
 router = APIRouter()
-chat_history_service = ChatHistoryService()
 
 
-@router.get("", response_model=List[ChatHistory])
-async def get_chat_history(user: Dict[str, Any] = Depends(get_current_user)) -> List[ChatHistory]:
-    user_id: str = user['uid']
-    return chat_history_service.fetch_chat_history(user_id)
+@router.get("", response_model=List[ChatHistoryItem])
+async def get_chat_history(
+    user: Dict[str, Any] = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> List[ChatHistoryItem]:
+    return await HistoryController.get_history(db, user["uid"])
 
 
-@router.delete("/{session_id}", response_model=Dict[str, bool])
-async def delete_chat(session_id: str, user: Dict[str, Any] = Depends(get_current_user)) -> Dict[str, bool]:
-    user_id: str = user['uid']
-    return chat_history_service.delete_chat_session(user_id, session_id)
+@router.delete("/{session_id}")
+async def delete_chat(
+    session_id: str,
+    user: Dict[str, Any] = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> Dict[str, bool]:
+    return await HistoryController.delete_session(db, user["uid"], session_id)
 
 
-@router.delete("", response_model=Dict[str, bool])
-async def clear_all_chats(user: Dict[str, Any] = Depends(get_current_user)) -> Dict[str, bool]:
-    user_id: str = user['uid']
-    return chat_history_service.clear_all_user_chats(user_id)
+@router.delete("")
+async def clear_all_chats(
+    user: Dict[str, Any] = Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+) -> Dict[str, bool]:
+    return await HistoryController.clear_all(db, user["uid"])
