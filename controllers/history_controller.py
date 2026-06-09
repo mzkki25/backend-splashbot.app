@@ -49,3 +49,15 @@ class HistoryController:
         )
         await db.commit()
         return {"success": True}
+
+    @staticmethod
+    async def rename_session(db: AsyncSession, user_id: str, session_id: str, new_title: str) -> dict:
+        session = await db.get(ChatSession, uuid.UUID(session_id))
+        if not session:
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Chat not found")
+        if str(session.user_id) != user_id:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Unauthorized access")
+        session.title = new_title.strip()[:255]
+        await db.commit()
+        logger.info(f"Chat session {session_id} renamed to '{new_title}'")
+        return {"success": True}
