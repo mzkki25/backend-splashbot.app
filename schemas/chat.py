@@ -51,6 +51,10 @@ class ChatHistoryItem(BaseModel):
     chat_session_id: str
     title: str
     timestamp: str
+    
+    
+class RenameChatRequest(BaseModel):
+    title: str
 
 
 class ChatMessageItem(BaseModel):

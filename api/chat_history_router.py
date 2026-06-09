@@ -3,15 +3,11 @@ from typing import List, Dict, Any
 from pydantic import BaseModel
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from schemas.chat import ChatHistoryItem
+from schemas.chat import ChatHistoryItem, RenameChatRequest
 from controllers.history_controller import HistoryController
 from api.deps import get_current_user
 from core.database import get_db
 from core.logger import get_logger
-
-
-class RenameChatRequest(BaseModel):
-    title: str
 
 logger = get_logger(__name__)
 
