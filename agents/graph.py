@@ -1,5 +1,6 @@
 from core.gemini import llm_code_gen, llm_analysis
 from core.config import UPLOAD_DIR, LIVE
+from core.minio import client as minio_client, MINIO_BUCKET
 from core.logger import get_logger
 from tools import search_web
 from tools.csv_tool import load_dataset, get_dataset_info
@@ -114,25 +115,28 @@ async def _handle_file(state: AgentState) -> dict:
         logger.warning(f"File not found: file_id={state['file_id']}")
         return {"response": "File not found", "file_url": None, "references": None, "follow_up_question": None, "created_at": state["created_at"]}
 
-    file_path = file_record.storage_path
+    object_key = file_record.storage_path
     content_type = file_record.content_type
     file_url = file_record.url
 
-    logger.debug(f"File loaded: type={content_type}, path={file_path}")
+    logger.debug(f"File loaded: type={content_type}, key={object_key}")
 
-    full_path = file_path
-    if not os.path.exists(full_path):
-        abs_path = os.path.join(os.path.dirname(os.path.dirname(__file__)), file_path)
-        if os.path.exists(abs_path):
-            full_path = abs_path
+    logger.debug(f"File loaded: type={content_type}, key={object_key}")
 
     context = get_conversation_context(state["session_id"])
 
+    try:
+        minio_resp = minio_client.get_object(MINIO_BUCKET, object_key)
+        file_bytes = minio_resp.read()
+        minio_resp.close()
+        minio_resp.release_conn()
+    except Exception as e:
+        logger.error(f"Failed to read file from MinIO: {e}")
+        return {"response": "Failed to read uploaded file", "file_url": None, "references": None, "follow_up_question": None, "created_at": state["created_at"]}
+
     if "application/pdf" in content_type:
-        with open(full_path, "rb") as f:
-            pdf_bytes = f.read()
         uploaded = genai.upload_file(
-            path=io.BytesIO(pdf_bytes),
+            path=io.BytesIO(file_bytes),
             display_name="PDF Document",
             mime_type="application/pdf",
         )
@@ -147,7 +151,7 @@ async def _handle_file(state: AgentState) -> dict:
         genai.delete_file(uploaded.name)
 
     elif content_type.startswith("image/"):
-        image = Image.open(full_path).convert("RGB")
+        image = Image.open(io.BytesIO(file_bytes)).convert("RGB")
         prompt_content = build_file_prompt(state["prompt"], image, context)
         multimodal_model = genai.GenerativeModel("gemini-3-flash-preview")
         response = multimodal_model.generate_content(prompt_content).text

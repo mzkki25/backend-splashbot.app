@@ -29,8 +29,11 @@ langchain-community==0.3.14
 # Gemini SDK (for file upload)
 google-generativeai==0.8.4
 
+# Storage
+minio==7.2.10
+
 # Web Search
-ddgs
+duckduckgo-search
 
 # Data Processing
 pandas==2.2.2
