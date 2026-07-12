@@ -32,12 +32,8 @@ if [ ! -f ".env" ]; then
     echo -e "${YELLOW}Peringatan: File .env tidak ditemukan! Harap siapkan sebelum menjalankan.${NC}"
 fi
 
-# Hentikan backend lama
-echo -e "${YELLOW}Menghentikan kontainer backend yang lama...${NC}"
-$DOCKER_COMPOSE down
-
-# Build dan jalankan backend
-echo -e "${GREEN}Membangun dan menjalankan kontainer backend...${NC}"
+# Build dan jalankan backend (Zero-downtime redeploy)
+echo -e "${GREEN}Membangun (jika ada perubahan) dan menjalankan kontainer backend...${NC}"
 $DOCKER_COMPOSE up --build -d
 
 echo -e "${GREEN}=== Backend Deployment Selesai ===${NC}"

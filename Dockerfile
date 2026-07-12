@@ -15,9 +15,9 @@ ENV PATH="$VENV_PATH/bin:$PATH"
 
 WORKDIR /app
 
-COPY . /app/
-
+COPY requirements.txt /app/
 RUN pip install --upgrade pip && pip install -r requirements.txt
+COPY . /app/
 
 RUN mkdir -p static/upload
 
