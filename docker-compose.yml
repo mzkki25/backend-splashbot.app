@@ -1,12 +1,16 @@
-version: '3.8'
-
 services:
   backend:
     build:
       context: .
       dockerfile: Dockerfile
     restart: always
-    network_mode: "host"
+    ports:
+      - "8000:8000"
+    # Memetakan localhost kontainer ke host-gateway (IP sistem host)
+    # sehingga kontainer bisa mengakses database PostgreSQL, Redis, dan MinIO 
+    # yang berjalan di localhost Windows/Linux host.
+    extra_hosts:
+      - "localhost:host-gateway"
     env_file:
       - .env
     logging:
